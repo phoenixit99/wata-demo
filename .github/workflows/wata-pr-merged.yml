@@ -1,0 +1,40 @@
+# Khi con người merge PR (cổng G4), chuyển issue được "Refs #<số>" sang status:uat.
+# Dùng token GitHub App để label mới kích hoạt skill uat.
+name: wata-pr-merged
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  to-uat:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.WATA_APP_ID }}
+          private-key: ${{ secrets.WATA_APP_PRIVATE_KEY }}
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const body = context.payload.pull_request.body || '';
+            const nums = [...body.matchAll(/Refs\s+#(\d+)/gi)].map(m => Number(m[1]));
+            for (const issue_number of [...new Set(nums)]) {
+              const { data: issue } = await github.rest.issues.get({ ...context.repo, issue_number });
+              const labels = issue.labels.map(l => l.name);
+              if (!labels.includes('status:qa-passed')) {
+                await github.rest.issues.createComment({ ...context.repo, issue_number, body:
+                  `## Needs human\n\nPR ${context.payload.pull_request.number} đã merge nhưng issue không ở ` +
+                  `\`status:qa-passed\` (đang: ${labels.filter(l => l.startsWith('status:')).join(', ') || 'không có'}). ` +
+                  `Tech Lead kiểm tra vì sao PR được merge trước khi QA đạt.` });
+                await github.rest.issues.addLabels({ ...context.repo, issue_number, labels: ['status:needs-human'] });
+                continue;
+              }
+              await github.rest.issues.createComment({ ...context.repo, issue_number, body:
+                `PR ${context.payload.pull_request.number} đã được merge bởi @${context.payload.pull_request.merged_by.login}. ` +
+                `Issue chuyển sang UAT; PO nghiệm thu trên staging sau khi deploy.` });
+              await github.rest.issues.addLabels({ ...context.repo, issue_number, labels: ['status:uat'] });
+            }

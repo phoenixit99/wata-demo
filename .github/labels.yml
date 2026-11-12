@@ -1,0 +1,42 @@
+# Bộ label của quy trình. Tên phải khớp docs/agents/contract.md mục 1.
+# Tạo bằng: scripts/setup-labels.sh <owner>/<repo>
+# Label app:<name> do setup-labels.sh sinh từ .claude/project.yml.
+
+- {name: "status:backlog",      color: "ededed", description: "Issue mới, chờ triage"}
+- {name: "status:fail-to-dev",  color: "f9d0c4", description: "Thiếu thông tin, chờ PO bổ sung"}
+- {name: "status:blocked",      color: "e4e669", description: "Bị chặn bởi issue khác"}
+- {name: "status:test-design",  color: "c5def5", description: "AI soạn test case và plan, chờ G2"}
+- {name: "status:ready-to-dev", color: "0e8a16", description: "G2 đã duyệt (chỉ con người gắn)"}
+- {name: "status:in-progress",  color: "1d76db", description: "Đang code"}
+- {name: "status:in-review",    color: "5319e7", description: "PR đang review (session riêng)"}
+- {name: "status:qa",           color: "fbca04", description: "Đang QA"}
+- {name: "status:qa-failed",    color: "d93f0b", description: "Còn lỗi sau 3 vòng, dev sửa"}
+- {name: "status:qa-passed",    color: "0e8a16", description: "QA đạt, chờ G3 và G4"}
+- {name: "status:uat",          color: "bfd4f2", description: "Đã merge, PO nghiệm thu"}
+- {name: "status:uat-failed",   color: "d93f0b", description: "PO không chấp nhận (chỉ con người gắn)"}
+- {name: "status:needs-human",  color: "b60205", description: "AI đã dừng, cần người xử lý"}
+- {name: "status:done",         color: "000000", description: "Đã nghiệm thu (chỉ con người gắn)"}
+
+- {name: "type:feature", color: "a2eeef", description: "Tính năng"}
+- {name: "type:bug",     color: "d73a4a", description: "Lỗi"}
+- {name: "type:chore",   color: "cfd3d7", description: "Việc kỹ thuật, không đổi hành vi"}
+- {name: "type:hotfix",  color: "b60205", description: "Sửa khẩn cấp production"}
+- {name: "type:epic",    color: "3e4b9e", description: "Feature lớn, đi qua Bước 0"}
+
+- {name: "risk:low",      color: "c2e0c6", description: "Rủi ro thấp: bỏ G3"}
+- {name: "risk:standard", color: "fef2c0", description: "Rủi ro thường"}
+- {name: "risk:high",     color: "e99695", description: "Rủi ro cao: thêm review bảo mật"}
+
+- {name: "priority:p1", color: "b60205", description: "Ưu tiên cao nhất (PM sắp)"}
+- {name: "priority:p2", color: "d93f0b", description: "Ưu tiên trung bình (PM sắp)"}
+- {name: "priority:p3", color: "fbca04", description: "Ưu tiên thấp (PM sắp)"}
+
+- {name: "size:s",  color: "e6f4ea", description: "Story nhỏ (ước lượng theo độ phức tạp nghiệp vụ và công review)"}
+- {name: "size:m",  color: "cdeccd", description: "Story vừa"}
+- {name: "size:l",  color: "a8dba8", description: "Story lớn"}
+- {name: "size:xl", color: "79bd8f", description: "Story rất lớn: nên tách"}
+- {name: "human-code", color: "5319e7", description: "Cần người code trực tiếp (bảo mật, thanh toán, thuật toán)"}
+
+- {name: "round:1", color: "ffffff", description: "Vòng sửa thứ 1"}
+- {name: "round:2", color: "ffffff", description: "Vòng sửa thứ 2"}
+- {name: "round:3", color: "ffffff", description: "Vòng sửa thứ 3"}

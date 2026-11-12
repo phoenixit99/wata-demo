@@ -1,0 +1,29 @@
+name: Hotfix (lỗi production khẩn cấp)
+description: Chỉ dùng cho lỗi production nghiêm trọng. Tech Lead triage trực tiếp.
+title: "[hotfix] <hiện tượng trên production>"
+labels: ["type:hotfix", "risk:high", "status:backlog"]
+body:
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Ai bị ảnh hưởng, bao nhiêu, từ lúc nào, có workaround không.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Request id, log, thời điểm, ảnh chụp.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true

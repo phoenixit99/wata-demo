@@ -1,0 +1,28 @@
+name: Việc kỹ thuật
+description: Refactor, nâng thư viện, cấu hình... không thay đổi hành vi người dùng thấy.
+title: "[chore] <việc gì>"
+labels: ["type:chore", "status:backlog"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Việc gì, vì sao bây giờ.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Kết quả kiểm chứng được, và hành vi nào phải giữ nguyên.
+      placeholder: |
+        - [ ] AC1: <lệnh/kiểm tra> cho kết quả <...>
+        - [ ] AC2: Toàn bộ test hiện có vẫn qua; không đổi response của <API>
+    validations:
+      required: true
+  - type: checkboxes
+    id: apps
+    attributes:
+      label: Affected apps
+      options:
+        - label: web

@@ -1,0 +1,252 @@
+# Chạy đúng một skill, trong một session mới, mỗi khi issue nhận label status:* có skill tương ứng.
+#
+# QUAN TRỌNG: agent phải đổi label bằng token của GitHub App (WATA_APP_ID / WATA_APP_PRIVATE_KEY).
+# Sự kiện tạo bằng GITHUB_TOKEN không kích hoạt workflow mới, nên bước sau sẽ không bao giờ chạy.
+# Xem docs/setup-guide.md mục 3 của repo quy trình.
+#
+# Hai job:
+#   route — không có concurrency; quyết định có chạy skill nào không. Mọi label khác (priority:*,
+#           risk:*, round:*) dừng ở đây nên không chiếm chỗ trong hàng đợi của issue.
+#   run   — concurrency theo issue; chỉ chạy khi route chọn được skill.
+# (GitHub giữ tối đa một lần chạy chờ trong một concurrency group; lần chạy chờ mới thay thế lần cũ.
+#  Vì vậy chỉ job thật sự chạy skill mới được vào group.)
+name: wata-agent
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Số issue
+        required: true
+      skill:
+        description: Tên skill (vd implement)
+        required: true
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      skill: ${{ steps.route.outputs.skill }}
+      issue: ${{ steps.route.outputs.issue }}
+      max_turns: ${{ steps.route.outputs.max_turns }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Route label to skill
+        id: route
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          LABEL: ${{ github.event.label.name }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+          AUTHOR_ASSOC: ${{ github.event.issue.author_association }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue }}
+          INPUT_SKILL: ${{ inputs.skill }}
+        run: |
+          set -euo pipefail
+          skill=""
+          last_heading=""
+          note=""
+
+          # yq có sẵn trên runner ubuntu-latest của GitHub (chưa kiểm chứng trên runner tự host).
+          wip=$(yq '.limits.wip_in_progress // 3' .claude/project.yml)
+          wip_review=$(yq '.limits.wip_in_review // 4' .claude/project.yml)
+          wip_qa=$(yq '.limits.wip_qa // 4' .claude/project.yml)
+          max_turns=$(yq '.limits.max_turns_per_run // 60' .claude/project.yml)
+          current=$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json labels \
+            --jq '[.labels[].name | select(startswith("status:"))] | join(",")')
+          human_code=$(gh issue view "$ISSUE" --repo "$GITHUB_REPOSITORY" --json labels \
+            --jq '[.labels[].name | select(. == "human-code")] | length')
+          # Guard chạy song song và có thể chưa gỡ xong label cũ, nên kiểm "có chứa", không kiểm "bằng".
+          has() { case ",$current," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            # Chỉ chạy khi trạng thái hiện tại của issue khớp với skill được gọi.
+            case "$INPUT_SKILL" in
+              implement)   has status:ready-to-dev && ! has status:in-progress && skill="$INPUT_SKILL" ;;
+              triage)      has status:backlog && skill="$INPUT_SKILL" ;;
+              test-design) has status:test-design && skill="$INPUT_SKILL" ;;
+              pr-review)   has status:in-review && skill="$INPUT_SKILL" ;;
+              qa)          has status:qa && skill="$INPUT_SKILL" ;;
+              merge-gate)  has status:qa-passed && skill="$INPUT_SKILL" ;;
+              uat)         has status:uat && skill="$INPUT_SKILL" ;;
+              *) note="skill '$INPUT_SKILL' không chạy tự động được" ;;
+            esac
+            [ -z "$skill" ] && [ -z "$note" ] && note="trạng thái hiện tại ($current) không khớp skill $INPUT_SKILL"
+          else
+            # Chỉ người trong tổ chức mới kích hoạt được agent (repo public: người ngoài tạo issue được).
+            case "$AUTHOR_ASSOC" in
+              OWNER|MEMBER|COLLABORATOR) ;;
+              *) note="tác giả issue ($AUTHOR_ASSOC) không phải thành viên; không chạy agent" ;;
+            esac
+
+            # Cổng con người: bot gắn label cổng thì không chạy (guard sẽ gỡ label).
+            case "$LABEL" in
+              status:ready-to-dev|status:uat-failed|status:done)
+                [ "$SENDER_TYPE" = "Bot" ] && note="bot gắn label cổng con người $LABEL; không chạy" ;;
+            esac
+
+            # Label của sự kiện không còn là trạng thái hiện tại (đã bị guard hoặc người đổi) thì bỏ qua.
+            case "$LABEL" in
+              status:*) has "$LABEL" || note="${note:-label $LABEL không còn là trạng thái hiện tại ($current)}" ;;
+            esac
+
+            if [ -z "$note" ]; then
+              last_heading=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" --paginate \
+                --jq '.[].body' | grep -E '^## (Triage|Test design|Build write-up|Code review|QA report|QA fix|Needs human)' \
+                | tail -n 1 || true)
+              case "$LABEL" in
+                type:epic)           skill="refine" ;;
+                status:backlog)      skill="triage" ;;
+                status:test-design)  skill="test-design" ;;
+                status:ready-to-dev) skill="implement" ;;
+                status:in-progress)
+                  # Chỉ chạy khi bị trả về từ review hoặc QA (chế độ sửa), không chạy khi implement tự gắn.
+                  # Xét heading kết quả cuối cùng của implement/review/QA, bỏ qua "## Needs human": người gắn lại
+                  # in-progress sau một lần chạy sửa bị lỗi vẫn phải chạy lại được chế độ sửa.
+                  fix_heading=$(gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" --paginate \
+                    --jq '.[].body' | grep -E '^## (Triage|Test design|Build write-up|Code review|QA report|QA fix)' | tail -n 1 || true)
+                  case "$fix_heading" in
+                    "## Code review: FAIL"*|"## QA report: FAIL"*) skill="implement" ;;
+                  esac ;;
+                status:in-review)    skill="pr-review" ;;
+                status:qa)           skill="qa" ;;
+                status:qa-passed)    skill="merge-gate" ;;
+                status:uat)          skill="uat" ;;
+              esac
+            fi
+          fi
+
+          # Story gắn human-code: người code trực tiếp, agent không implement.
+          if [ "$skill" = "implement" ] && [ "$human_code" != "0" ]; then
+            note="story có label human-code; người code trực tiếp"
+            skill=""
+          fi
+
+          # Giới hạn WIP cho issue mới bắt đầu code: cả hàng đang code, hàng chờ review và hàng chờ QA
+          # (theo quy trình Scrum, review/QA là nút thắt). Vượt giới hạn: giữ ready-to-dev;
+          # wata-sla-reminder gọi lại theo priority khi có chỗ.
+          if [ "$skill" = "implement" ] && has status:ready-to-dev; then
+            count() { gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$1" --json number --jq 'length'; }
+            busy=$(count status:in-progress); in_review=$(count status:in-review); in_qa=$(count status:qa)
+            if [ "$busy" -ge "$wip" ] || [ "$in_review" -ge "$wip_review" ] || [ "$in_qa" -ge "$wip_qa" ]; then
+              note="WIP đầy (code $busy/$wip, review $in_review/$wip_review, QA $in_qa/$wip_qa); #$ISSUE chờ trong hàng ready-to-dev"
+              skill=""
+            fi
+          fi
+
+          echo "skill=$skill" >> "$GITHUB_OUTPUT"
+          echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
+          echo "max_turns=$max_turns" >> "$GITHUB_OUTPUT"
+          {
+            echo "Route: event=$EVENT label=${LABEL:-} current=$current last=${last_heading:-}"
+            echo "Skill: ${skill:-<none>} ${note:+($note)}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  run:
+    needs: route
+    if: needs.route.outputs.skill != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: wata-issue-${{ needs.route.outputs.issue }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+      issues: write          # chỉ cho bước "Báo khi skill không ra kết quả" khi token App không lấy được
+    steps:
+      - name: Thời điểm bắt đầu
+        id: start
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.WATA_APP_ID }}
+          private-key: ${{ secrets.WATA_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      # TODO(project): cài toolchain mà skill cần để lint/test/build (Node + pnpm, Flutter, Playwright...).
+      # Ví dụ:
+      # - uses: pnpm/action-setup@v4
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: 22, cache: pnpm }
+      # - run: pnpm install --frozen-lockfile
+
+      - name: Run skill
+        id: skill
+        # Input đã đối chiếu với action.yml của anthropics/claude-code-action (prompt, anthropic_api_key,
+        # github_token cho GitHub App riêng, claude_args).
+        # Timeout ở mức step (nhỏ hơn timeout của job) để treo = step thất bại, và bước báo lỗi bên dưới
+        # vẫn còn thời gian chạy.
+        timeout-minutes: 80
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          prompt: "/${{ needs.route.outputs.skill }} ${{ needs.route.outputs.issue }} --auto"
+          claude_args: "--max-turns ${{ needs.route.outputs.max_turns }}"
+
+      # Không để issue nằm im ở trạng thái của AI. Hai trường hợp chuyển sang status:needs-human:
+      #   1. Step skill thất bại: lỗi API, hết --max-turns (nếu action báo lỗi), quá timeout 80 phút, token App lỗi.
+      #   2. Step skill "thành công" nhưng không có comment nào của bot trên issue kể từ lúc bắt đầu
+      #      (mọi skill chạy tự động đều phải đăng một heading kết quả, contract mục 2).
+      # Cả khi job bị huỷ: issue cũng đang kẹt ở trạng thái của AI, nên chuyển cho người là đúng.
+      - name: Báo khi skill không ra kết quả
+        # skipped = token App hoặc checkout lỗi trước khi skill chạy: vẫn phải báo.
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          OUTCOME: ${{ steps.skill.outcome }}
+          STARTED: ${{ steps.start.outputs.at }}
+          ISSUE: ${{ needs.route.outputs.issue }}
+          SKILL: ${{ needs.route.outputs.skill }}
+        with:
+          # Ưu tiên token App để label mới kích hoạt guard; nếu chính token App lỗi thì dùng GITHUB_TOKEN
+          # (khi đó guard không chạy, nên bước này tự gỡ label status:* cũ).
+          github-token: ${{ steps.app-token.outputs.token || github.token }}
+          script: |
+            const repo = context.repo;
+            const issue_number = Number(process.env.ISSUE);
+            const { OUTCOME, STARTED, SKILL } = process.env;
+            const runUrl = `${context.serverUrl}/${repo.owner}/${repo.repo}/actions/runs/${context.runId}`;
+
+            let reason = '';
+            if (OUTCOME !== 'success') {
+              reason = `Lần chạy skill \`${SKILL}\` kết thúc với trạng thái \`${OUTCOME || 'không chạy'}\` ` +
+                       `(lỗi API, hết lượt --max-turns, quá thời gian, hoặc token App lỗi).`;
+            } else {
+              const comments = await github.paginate(github.rest.issues.listComments,
+                { ...repo, issue_number, since: STARTED, per_page: 100 });
+              const fromBot = comments.filter(c => c.user && c.user.type === 'Bot'
+                && new Date(c.created_at) >= new Date(STARTED));
+              if (fromBot.length === 0) {
+                reason = `Skill \`${SKILL}\` chạy xong nhưng không đăng kết quả nào lên issue.`;
+              }
+            }
+            if (!reason) return;
+
+            core.warning(`#${issue_number}: ${reason}`);
+            const { data: issue } = await github.rest.issues.get({ ...repo, issue_number });
+            for (const l of issue.labels.map(l => l.name).filter(n => n.startsWith('status:'))) {
+              try { await github.rest.issues.removeLabel({ ...repo, issue_number, name: l }); }
+              catch (e) { if (e.status !== 404) throw e; }
+            }
+            await github.rest.issues.createComment({ ...repo, issue_number, body:
+              `## Needs human\n\n${reason}\n\nLog: ${runUrl}\n\n` +
+              `Việc cần làm: xem log, sửa nguyên nhân, rồi gắn lại label trạng thái phù hợp để chạy lại ` +
+              `(hoặc chạy tay bằng workflow_dispatch của \`wata-agent\`).` });
+            await github.rest.issues.addLabels({ ...repo, issue_number, labels: ['status:needs-human'] });

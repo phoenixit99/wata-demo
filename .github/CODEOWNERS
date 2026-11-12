@@ -1,0 +1,11 @@
+# Người duyệt bắt buộc (cổng G4). Bật "Require review from Code Owners" trong branch protection.
+# Demo: một người đóng mọi vai. Project thật: thay bằng team.
+
+*                         @phoenixit99
+/apps/web/                @phoenixit99
+
+# Quy trình và guardrail: chỉ Tech Lead được duyệt thay đổi
+/.github/                 @phoenixit99
+/.claude/                 @phoenixit99
+/docs/agents/             @phoenixit99
+/CLAUDE.md                @phoenixit99

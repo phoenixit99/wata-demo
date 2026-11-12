@@ -1,0 +1,43 @@
+name: Tính năng
+description: Yêu cầu một tính năng hoặc thay đổi hành vi. AI sẽ triage theo Definition of Ready.
+title: "[feature] <thay đổi gì, cụ thể>"
+labels: ["type:feature", "status:backlog"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Viết theo hướng dẫn `docs/agents/writing-acceptance-criteria.md`. Không chắc cách viết?
+        Tạo issue với mô tả ngắn rồi comment `@claude soạn lại issue này theo mẫu`.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Vấn đề là gì, vì sao cần. Khuyến khích dạng "Là <vai trò>, tôi muốn <việc>, để <lợi ích>".
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Mỗi tiêu chí có hành động và kết quả quan sát được. Không dùng "nhanh", "đẹp", "dễ dùng".
+      placeholder: |
+        - [ ] AC1: Khi <hành động>, thì <kết quả quan sát được>
+        - [ ] AC2: Khi <dữ liệu sai>, thì <thông báo lỗi cụ thể>, và <điều KHÔNG được xảy ra>
+    validations:
+      required: true
+  - type: checkboxes
+    id: apps
+    attributes:
+      label: Affected apps
+      options:
+        - label: web
+  - type: input
+    id: design
+    attributes:
+      label: Design
+      description: Link frame Figma (bắt buộc nếu đổi UI).
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical notes
+      description: Request/response nếu đổi API, ràng buộc, issue liên quan (#số), issue chặn.

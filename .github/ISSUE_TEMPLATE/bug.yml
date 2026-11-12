@@ -1,0 +1,55 @@
+name: Lỗi
+description: Báo một lỗi. Cần bước tái hiện, kết quả mong đợi và kết quả thực tế.
+title: "[bug] <hiện tượng, ở đâu>"
+labels: ["type:bug", "status:backlog"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Lỗi ảnh hưởng ai, bao nhiêu, từ khi nào (nếu biết).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Đăng nhập bằng tài khoản <loại>
+        2. Vào <màn hình>
+        3. Bấm <nút>
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Kèm ảnh chụp, log, request id, thời điểm nếu có.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] AC1: Khi <làm lại các bước trên>, thì <kết quả mong đợi>
+        - [ ] AC2: <hành vi liền kề vẫn đúng như cũ>
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Môi trường (dev/staging/prod), trình duyệt, phiên bản app mobile.
+    validations:
+      required: true
+  - type: checkboxes
+    id: apps
+    attributes:
+      label: Affected apps
+      options:
+        - label: web

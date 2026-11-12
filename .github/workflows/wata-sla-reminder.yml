@@ -1,0 +1,118 @@
+# 1. Nhắc người phụ trách khi issue nằm ở hàng chờ của con người quá SLA, và khi PR chờ người review
+#    quá sla_hours.review (mỗi sáng ngày làm việc).
+# 2. Gọi implement cho issue ready-to-dev đang chờ khi WIP còn chỗ, theo priority (mỗi giờ).
+# SLA tính theo giờ đồng hồ, chưa trừ ngày nghỉ (đơn giản hoá; điều chỉnh nếu cần).
+name: wata-sla-reminder
+
+on:
+  schedule:
+    - cron: "0 1 * * 1-5"      # 08:00 giờ Việt Nam: nhắc SLA
+    - cron: "15 * * * 1-5"     # mỗi giờ: lấy việc từ hàng chờ
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  actions: write
+  contents: read
+
+jobs:
+  sla:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: yq -o=json '.' .claude/project.yml > "$RUNNER_TEMP/project.json"
+      - uses: actions/github-script@v7
+        env:
+          PROJECT_JSON: ${{ runner.temp }}/project.json
+          MODE: ${{ github.event.schedule == '15 * * * 1-5' && 'queue' || 'remind' }}
+        with:
+          script: |
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync(process.env.PROJECT_JSON, 'utf8'));
+            const repo = context.repo;
+            const people = cfg.people || {};
+            const sla = cfg.sla_hours || {};
+            const at = (list) => (list || []).map(l => '@' + l).join(' ');
+
+            async function issuesWith(label) {
+              return await github.paginate(github.rest.issues.listForRepo,
+                { ...repo, state: 'open', labels: label, per_page: 100 });
+            }
+            async function hoursInLabel(issue_number, label) {
+              const events = await github.paginate(github.rest.issues.listEvents, { ...repo, issue_number, per_page: 100 });
+              const last = events.filter(e => e.event === 'labeled' && e.label && e.label.name === label).pop();
+              return last ? (Date.now() - new Date(last.created_at)) / 36e5 : 0;
+            }
+
+            if (process.env.MODE === 'queue') {
+              const lim = cfg.limits || {};
+              const busy = (await issuesWith('status:in-progress')).length;
+              const inReview = (await issuesWith('status:in-review')).length;
+              const inQa = (await issuesWith('status:qa')).length;
+              if (inReview >= (lim.wip_in_review || 4) || inQa >= (lim.wip_qa || 4)) return;  // nút thắt review/QA
+              let free = (lim.wip_in_progress || 3) - busy;
+              if (free <= 0) return;
+              const rank = (i) => {
+                const n = i.labels.map(l => l.name);
+                return n.includes('priority:p1') ? 1 : n.includes('priority:p2') ? 2 : n.includes('priority:p3') ? 3 : 4;
+              };
+              const waiting = (await issuesWith('status:ready-to-dev'))
+                .filter(i => !i.labels.some(l => l.name === 'human-code'))
+                .sort((a, b) => rank(a) - rank(b) || new Date(a.created_at) - new Date(b.created_at));
+              for (const i of waiting.slice(0, free)) {
+                await github.rest.actions.createWorkflowDispatch({ ...repo, workflow_id: 'wata-agent.yml',
+                  ref: cfg.default_branch || 'main', inputs: { issue: String(i.number), skill: 'implement' } });
+              }
+              return;
+            }
+
+            // Hàng chờ của con người → ai phụ trách, khoá SLA.
+            const queues = [
+              { label: 'status:fail-to-dev', key: 'fail_to_dev',    who: [...(people.po || []), ...(people.ba || [])], what: 'bổ sung thông tin cho issue' },
+              { label: 'status:test-design', key: 'plan_approval',  who: [...(people.tech_lead || []), ...(people.qa || [])], what: 'duyệt plan và test case (G2)' },
+              { label: 'status:needs-human', key: 'needs_human',    who: [...(people.tech_lead || []), ...(people.pm || [])], what: 'xử lý issue AI đã dừng' },
+              { label: 'status:qa-failed',   key: 'needs_human',    who: people.tech_lead, what: 'sửa lỗi sau QA' },
+              { label: 'status:qa-passed',   key: 'merge_decision', who: people.tech_lead, what: 'refutation (G3) và quyết định merge (G4)' },
+              { label: 'status:uat',         key: 'uat',            who: people.po, what: 'nghiệm thu UAT (G5)' },
+            ];
+            const summary = [];
+            for (const q of queues) {
+              const limit = sla[q.key];
+              if (!limit) continue;
+              for (const i of await issuesWith(q.label)) {
+                const h = await hoursInLabel(i.number, q.label);
+                if (h < limit) continue;
+                const owners = i.assignees.length ? i.assignees.map(a => a.login) : (q.who || []);
+                await github.rest.issues.createComment({ ...repo, issue_number: i.number, body:
+                  `${at(owners)} issue đã ở \`${q.label}\` ${Math.round(h)} giờ, quá SLA ${limit} giờ. ` +
+                  `Việc cần làm: ${q.what}. ${at(people.pm)}` });
+                summary.push(`#${i.number} ${q.label} ${Math.round(h)}h`);
+              }
+            }
+            // Review của người (nút thắt chính theo Quy trình Scrum mục 6.7). Không phải một status:*:
+            // AI review PASS thì issue sang status:qa ngay, còn người duyệt trên PR (CODEOWNERS, chặn ở G4).
+            // Vì vậy đo trên PR: từ lúc PR mở (không phải draft) đến khi có approve. Khớp chỉ số "Review wait".
+            if (sla.review) {
+              const prs = await github.paginate(github.rest.pulls.list, { ...repo, state: 'open', per_page: 100 });
+              // Chỉ PR của quy trình (body có "Refs #", contract bắt buộc); bỏ Dependabot và PR ngoài quy trình.
+              for (const pr of prs.filter(p => !p.draft && /Refs #\d+/.test(p.body || ''))) {
+                const h = (Date.now() - new Date(pr.created_at)) / 36e5;
+                if (h < sla.review) continue;
+                const reviews = await github.paginate(github.rest.pulls.listReviews,
+                  { ...repo, pull_number: pr.number, per_page: 100 });
+                const latest = {};   // trạng thái mới nhất của từng người review (bỏ COMMENTED)
+                for (const r of reviews) if (r.user && r.state !== 'COMMENTED') latest[r.user.login] = r.state;
+                const states = Object.values(latest);
+                if (states.includes('APPROVED')) continue;
+                if (states.includes('CHANGES_REQUESTED')) continue;   // đang chờ tác giả sửa, không phải chờ người review
+                const requested = (pr.requested_reviewers || []).map(u => u.login);
+                const owners = requested.length ? requested : (people.tech_lead || []);
+                await github.rest.issues.createComment({ ...repo, issue_number: pr.number, body:
+                  `${at(owners)} PR đã mở ${Math.round(h)} giờ chưa được duyệt, quá SLA review ${sla.review} giờ. ` +
+                  `Việc cần làm: review và approve hoặc yêu cầu sửa (khung review cố định: ` +
+                  `${((cfg.sprint || {}).review_slots || []).join(', ') || 'chưa đặt'}). ${at(people.pm)}` });
+                summary.push(`PR #${pr.number} chờ review ${Math.round(h)}h`);
+              }
+            }
+
+            core.summary.addHeading('Quá SLA').addList(summary.length ? summary : ['Không có']).write();

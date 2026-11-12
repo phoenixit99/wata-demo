@@ -1,0 +1,61 @@
+# Cấu hình project cho bộ quy trình WATA AI Agent.
+# Schema đầy đủ: docs/agents/contract.md mục 9. Tech Lead và PM điền trước khi bật agent.
+
+process_version: "1.5.0"
+language: vi
+tracker: github
+repo: phoenixit99/wata-demo
+default_branch: main
+
+apps:
+  - name: web
+    path: apps/web
+    stack: react-vite
+    standard: docs/coding-standards/react-vite.md
+    commands:
+      lint: "npm --prefix apps/web run lint"
+      typecheck: "npm --prefix apps/web run typecheck"
+      test: "npm --prefix apps/web test"
+      build: "npm --prefix apps/web run build"
+
+
+
+e2e:                # demo: chưa có Playwright; test component (Testing Library) đóng vai e2e
+  path: apps/web/src
+  command: "npm --prefix apps/web test"
+people:            # GitHub login, không có @
+  po: ["phoenixit99"]
+  ba: ["phoenixit99"]
+  pm: ["phoenixit99"]
+  tech_lead: ["phoenixit99"]
+  qa: ["phoenixit99"]
+  designer: ["phoenixit99"]
+  ai_enablement: ["phoenixit99"]  # mặc định: Tech Lead (phía kỹ thuật) + PO (phía yêu cầu); process owner ở cấp project
+  security: ["phoenixit99"]
+
+design_system: docs/design-system.md   # đầu vào bắt buộc để AI tạo brief/Figma
+
+sprint:            # ĐỀ XUẤT — team chốt
+  length_days: 10                       # sprint 2 tuần
+  review_slots: ["10:00", "15:00"]      # khung giờ cố định duyệt PR mỗi ngày
+  design_approval_days: 2               # khách duyệt thiết kế trong 1–2 ngày đầu sprint
+
+limits:            # DEMO: WIP = 1 để /sprint daily thấy vượt giới hạn. Project thật: 3 / 4 / 4
+  max_fix_rounds: 3
+  wip_in_progress: 1          # issue AI đang code cùng lúc
+  wip_in_review: 1            # PR chờ người review (nút thắt mới theo quy trình Scrum)
+  wip_qa: 1                   # issue chờ QA
+  max_turns_per_run: 60
+
+sla_hours:         # DEMO: đặt rất nhỏ để /sprint daily có mục "Quá SLA" thật. Project thật dùng giá trị trong mẫu.
+  fail_to_dev: 1
+  plan_approval: 1
+  review: 1                   # PR mở → người approve (mục tiêu "Review wait < 1 ngày làm việc")
+  needs_human: 1
+  merge_decision: 1
+  uat: 1
+
+high_risk_paths:
+  - "**/auth/**"
+  - "**/payment*/**"
+  - "**/migrations/**"

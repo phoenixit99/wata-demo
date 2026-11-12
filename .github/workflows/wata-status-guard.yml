@@ -1,0 +1,58 @@
+# Giữ đúng một label status:* trên mỗi issue, và chặn bot tự gắn label của cổng con người.
+# Dùng GITHUB_TOKEN: việc gỡ label ở đây không cần kích hoạt workflow khác.
+name: wata-status-guard
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+jobs:
+  guard:
+    if: startsWith(github.event.label.name, 'status:')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const HUMAN_ONLY = ['status:ready-to-dev', 'status:uat-failed', 'status:done'];
+            const issue_number = context.payload.issue.number;
+            const added = context.payload.label.name;
+            const sender = context.payload.sender;
+            const repo = context.repo;
+
+            // 1. Cổng con người: bot không được gắn.
+            if (HUMAN_ONLY.includes(added) && sender.type === 'Bot') {
+              await github.rest.issues.removeLabel({ ...repo, issue_number, name: added });
+              await github.rest.issues.createComment({ ...repo, issue_number, body:
+                `## Needs human\n\nBot \`${sender.login}\` đã gắn \`${added}\`, là label của cổng con người. ` +
+                `Label đã bị gỡ. Một người có quyền ký cổng cần kiểm tra và tự gắn lại nếu phù hợp.` });
+              await github.rest.issues.addLabels({ ...repo, issue_number, labels: ['status:needs-human'] });
+              return;
+            }
+
+            // 2. Chỉ giữ một label trạng thái.
+            const labels = context.payload.issue.labels.map(l => l.name);
+            for (const name of labels) {
+              if (name.startsWith('status:') && name !== added) {
+                try {
+                  await github.rest.issues.removeLabel({ ...repo, issue_number, name });
+                } catch (e) {
+                  if (e.status !== 404) throw e;   // label đã bị gỡ bởi lần chạy khác
+                }
+              }
+            }
+
+            // 3. Vòng sửa reset khi issue quay về đầu luồng hoặc kết thúc.
+            if (['status:backlog', 'status:done'].includes(added)) {
+              for (const name of labels.filter(n => n.startsWith('round:'))) {
+                try { await github.rest.issues.removeLabel({ ...repo, issue_number, name }); } catch (e) {}
+              }
+            }
+
+            // 4. Nghiệm thu xong thì đóng issue.
+            if (added === 'status:done') {
+              await github.rest.issues.update({ ...repo, issue_number, state: 'closed', state_reason: 'completed' });
+            }

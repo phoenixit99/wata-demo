@@ -1,0 +1,33 @@
+name: Feature lớn (epic)
+description: Yêu cầu lớn hơn một issue. Đi qua Bước 0 (phân tích feature) trước khi chia issue con.
+title: "[epic] <năng lực mới>"
+labels: ["type:epic"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Vấn đề của người dùng hoặc kinh doanh. Chưa cần giải pháp.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Thành công trông như thế nào, đo bằng gì.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Trong phạm vi / ngoài phạm vi, nếu đã biết.
+  - type: input
+    id: design
+    attributes:
+      label: Design
+      description: Link Figma nếu đã có.
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline / release mục tiêu

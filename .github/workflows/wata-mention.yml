@@ -1,0 +1,56 @@
+# Cho PO, BA, PM, QA nhờ AI ngay trên GitHub: comment "@claude <yêu cầu>" trong issue hoặc PR.
+# Ví dụ: "@claude soạn lại issue này theo mẫu", "@claude giải thích PR này cho PO".
+# Chỉ thành viên/collaborator mới gọi được. AI vẫn tuân theo docs/agents/contract.md.
+name: wata-mention
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  claude:
+    if: >-
+      contains(github.event.comment.body, '@claude') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.WATA_APP_ID }}
+          private-key: ${{ secrets.WATA_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      # Không truyền prompt: action chạy ở chế độ trả lời mention.
+      # PO, BA, QA, Designer không cần nhớ tên skill: chỉ dẫn hệ thống bên dưới bắt AI chọn skill theo
+      # trạng thái issue và yêu cầu trong comment (bảng ở docs/agents/skill-catalog.json), rồi đọc
+      # .claude/skills/<skill>/SKILL.md và làm theo.
+      # Chưa kiểm chứng: action có tự nạp .claude/skills ở chế độ này không; vì vậy chỉ dẫn yêu cầu đọc file
+      # trực tiếp. Câu gọi dự phòng vẫn dùng được: "@claude đọc .claude/skills/<skill>/SKILL.md và làm theo".
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          claude_args: >-
+            --max-turns 30
+            --append-system-prompt "Quy trình WATA. Trước khi làm: đọc docs/agents/contract.md và
+            docs/agents/skill-catalog.json. Chọn đúng một skill theo label status:* hiện tại của issue và yêu
+            cầu trong comment (ví dụ: soạn issue → issue-create; duyệt plan → test-design --approve;
+            so UI với Figma → pr-review --design; test manual → qa --manual; nghiệm thu → uat --run;
+            sự kiện Scrum → sprint <lệnh con>). Đọc .claude/skills/<skill>/SKILL.md và làm theo, nói rõ
+            skill đã chọn ở dòng đầu câu trả lời. Không chạy chế độ mặc định của skill tự động khi workflow
+            wata-agent đã chạy nó. Không gắn status:ready-to-dev, status:uat-failed, status:done. Cổng là của
+            con người: với test-design --approve, merge-gate --merge, uat --run chỉ soạn nháp và trả lời bằng
+            đoạn văn bản chính xác để người tự đăng; không bao giờ tự đăng comment có heading ## Plan approval,
+            ## G3, ## Merge readiness hoặc ## UAT:. Nếu không
+            rõ cần skill nào, hỏi lại người gọi thay vì đoán."

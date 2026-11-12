@@ -145,7 +145,7 @@ PO ─G1─▶ triage ─▶ test-design ─G2─▶ implement ─▶ pr-review 
 | **4. Implement** | 6–8' | `/implement 1` | Branch, test viết trước, code `filterTasks`, chạy lint/typecheck/test/build, PR, `## Build write-up` | Write-up chia rõ **đã chạy / chỉ đọc / còn là claim** |
 | **5. Review session riêng** | 5' | **Cửa sổ B:** `/pr-review <số PR>` | Lượt 1: 9 tiêu chí. Lượt 2: cố bác bỏ write-up. Kết luận PASS/FAIL | Người viết và người review là hai session khác nhau. FAIL → sửa, tối đa 3 vòng, rồi giao người |
 | **6. QA** | 5' | Cửa sổ A: `/qa 1` | Viết Playwright theo TC, chạy, phân loại lỗi, `## QA report` | Không bao giờ làm yếu test cho xanh |
-| **7–8. G3 + G4** | 4' | `/merge-gate 1`; đọc brief, comment `## G3: OK`; `/merge-gate --merge 1`; bấm Merge | Refutation brief, `## Merge readiness: READY` | Thử `git push origin main` → bị branch protection từ chối |
+| **7–8. G3 + G4** | 4' | `/merge-gate 1`; đọc brief, comment `## G3: OK`; `/merge-gate --merge 1`; bấm Merge | Refutation brief, `## Merge readiness: READY` | Chỉ vào khung merge của PR: "Review required" và "Required status check: web". Chỉ admin mới bypass được; token của agent không có quyền này. (Đừng demo `git push origin main`: bạn là admin nên push vẫn qua, chỉ kèm cảnh báo) |
 | **9. UAT + G5** | 3' | Gắn `status:uat`; `/uat 1`; mở app ở tab C, `/uat --run 1`; gắn `status:done` | Checklist bằng ngôn ngữ người dùng, `## UAT: ACCEPTED` | Chỉ PO đóng việc |
 | **Phụ: rủi ro** | 4' | #3: `status:backlog` → `/triage 3`. #4: `status:backlog` → `/triage 4` | #3 được đề xuất `risk:low`, **bỏ G3**. #4 (xoá dữ liệu) được đề xuất `risk:high`, thêm review bảo mật | Mở `docs/agents/risk-tiers.md`: cổng thay đổi theo mức rủi ro |
 

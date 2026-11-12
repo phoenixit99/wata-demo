@@ -206,18 +206,6 @@ chạy hôm qua".
 
 ---
 
-## Phần 3 — Demo cho lãnh đạo, PM, PO (dự kiến)
-
-Dùng lại repo và dữ liệu này, rút gọn theo người xem:
-
-| Người xem | Nội dung | Lệnh |
-|---|---|---|
-| PO | Lời nói thành issue chuẩn; G1; triage FAIL; nghiệm thu; phản hồi review thành story | `/issue-create`, `/triage`, `/uat --run`, `/sprint review feedback` |
-| PM | Planning theo năng lực, daily theo việc bị chặn, báo cáo chỉ số | `/sprint plan`, `/sprint daily`, `/sprint report` |
-| Lãnh đạo | Con người giữ cổng nào, kiểm soát rủi ro, chỉ số đo được | Trang tổng quan (chưa làm) |
-
----
-
 ## Sự cố thường gặp
 
 | Hiện tượng | Cách xử lý |

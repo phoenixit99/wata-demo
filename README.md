@@ -13,7 +13,6 @@ project chạy thật: app web quản lý công việc nhỏ, đã cài đủ sk
 |---|---|---|---|
 | **1. Quy trình phát triển** | Dev, QA | Một story đi qua 9 bước và 5 cổng: yêu cầu → triage → test design → code → review ở session riêng → QA → merge → nghiệm thu. Kèm các nhánh: issue mơ hồ bị trả lại, rủi ro thấp được bỏ cổng, rủi ro cao thêm review | 35–45 phút |
 | **2. Quản lý Scrum** | Dev, QA, PM | Planning theo năng lực review/QA, daily tập trung việc bị chặn, sprint review, retro biến lỗi AI lặp lại thành đề xuất sửa skill | 20–25 phút |
-| 3. Lãnh đạo, PM, PO | Lãnh đạo, PM, PO | Rút gọn từ hai demo trên (đang chuẩn bị) | — |
 
 **Thông điệp chính:** AI làm phần việc, con người giữ các cổng. AI không duyệt plan (G2), không merge (G4), không
 nghiệm thu (G5).

@@ -1,221 +1,223 @@
 # Kịch bản demo — Quy trình WATA AI
 
-Repo này là project mẫu (app quản lý công việc, `apps/web`) đã cài **WATA AI Process v1.5.0**. Có hai demo cho
+Repo này là project mẫu (app quản lý công việc ở `apps/web`) đã cài **WATA AI Process v1.5.0**. Dùng cho hai demo,
 khán giả **dev và QA nội bộ**:
 
-| Demo | Nội dung | Thời lượng | Lệnh chính |
+| Demo | Nội dung | Thời lượng | Issue dùng |
 |---|---|---|---|
-| **1. Quy trình phát triển** | Một story đi từ yêu cầu → code → review → QA → merge → nghiệm thu, và các nhánh rẽ (thiếu thông tin, rủi ro thấp/cao) | 35–45 phút | `/issue-create`, `/triage`, `/test-design`, `/implement`, `/pr-review`, `/qa`, `/merge-gate`, `/uat` |
-| **2. Quản lý Scrum** | Planning theo năng lực review/QA, daily tập trung việc bị chặn, review, retro biến lỗi AI thành sửa skill | 20–25 phút | `/sprint plan\|daily\|review\|retro\|report` |
+| **1. Quy trình phát triển** | Một story đi từ yêu cầu → code → review → QA → merge → nghiệm thu; các nhánh rẽ | 35–45 phút | #1 (chính), #2, #3, #4 |
+| **2. Quản lý Scrum** | Planning theo năng lực review/QA, daily theo việc bị chặn, review, retro | 20–25 phút | #5–#10 + lịch sử Sprint 1 |
 
-Thông điệp xuyên suốt: **AI làm phần việc, con người giữ các cổng.** AI không bao giờ gắn `status:ready-to-dev`
-(G2), không merge (G4), không gắn `status:done` (G5). Nút thắt dịch chuyển từ *viết code* sang *review và QA*,
-nên Scrum lập kế hoạch theo năng lực review/QA, không theo tốc độ AI viết code.
+**Thông điệp xuyên suốt:** AI làm phần việc, con người giữ các cổng. AI không gắn `status:ready-to-dev` (G2), không
+merge (G4), không gắn `status:done` (G5). Nút thắt chuyển từ *viết code* sang *review và QA*, nên Scrum lập kế hoạch
+theo năng lực review/QA, không theo tốc độ AI viết code.
 
----
+Có 3 giai đoạn, làm theo thứ tự:
 
-## 0. Chuẩn bị (làm trước buổi demo 1 ngày)
-
-- [ ] Máy trình bày: Claude Code đã đăng nhập, `gh auth status` OK (có scope `repo`, `workflow`), Node ≥ 20.
-- [ ] `git clone https://github.com/phoenixit99/wata-demo && cd wata-demo && npm --prefix apps/web ci && npx --prefix apps/web playwright install chromium`
-- [ ] Chạy thử: `npm --prefix apps/web test && npm --prefix apps/web run e2e` → xanh.
-- [ ] Tạo issue mẫu: `python3 -I demo/seed/seed.py phoenixit99/wata-demo` (chạy lại không sinh trùng).
-- [ ] Mở sẵn 3 cửa sổ:
-  1. **Terminal A — "Dev session"**: `cd wata-demo && claude`
-  2. **Terminal B — "Review session"** (session riêng, để chứng minh review độc lập): `cd wata-demo && claude`
-  3. **Trình duyệt**: tab Issues, tab Pull requests, tab app chạy local (`npm --prefix apps/web run dev`).
-- [ ] Đọc mục [Dự phòng](#dự-phòng-khi-ai-chạy-chậm-hoặc-lệch) và biết các issue/PR "đã chạy sẵn" để nhảy cóc.
-
-> Mọi lệnh `/...` là **chế độ tương tác**: trước mỗi lần ghi (comment, label, commit, PR), AI cho xem nội dung
-> chính xác và chờ bạn đồng ý. Đây là điểm nên nói to khi demo.
-
-Trong demo một người đóng nhiều vai. Khi đổi vai, nói rõ: "Bây giờ tôi là PO / Tech Lead / QA".
+1. **Cài máy** (một lần, khoảng 10 phút).
+2. **Tập dượt = tạo dữ liệu Sprint 1** (trước buổi demo 1–2 ngày, khoảng 1,5–2 giờ). Bắt buộc, vì Demo 2 cần lịch sử thật.
+3. **Buổi demo.**
 
 ---
 
-## Demo 1 — Quy trình phát triển (9 bước, 5 cổng)
+## Giai đoạn 1 — Cài máy
 
-Sơ đồ nhắc lại (chiếu `docs/agents/process.md` mục 4 hoặc website quy trình):
+```bash
+git clone git@github.com:phoenixit99/wata-demo.git ~/wata-demo   # đã có sẵn ở ~/wata-demo thì bỏ qua
+cd ~/wata-demo
+npm --prefix apps/web ci
+npm --prefix apps/web test        # 9 test xanh
+npm --prefix apps/web run e2e     # 2 test Playwright xanh
+gh auth status                    # đã đăng nhập phoenixit99
+```
+
+Mở Claude Code **từ thư mục repo** (mở ở thư mục khác thì skill không nạp, gõ `/triage` sẽ báo `Unknown command`):
+
+```bash
+cd ~/wata-demo && claude
+```
+
+Gõ `/dev-pipeline`. Bạn sẽ thấy bảng việc theo vai trò, nghĩa là skill đã nạp và sẵn sàng.
+
+> **Quy ước khi chạy:** mọi lệnh `/...` chạy ở chế độ tương tác. Trước mỗi lần ghi lên GitHub (comment, label,
+> commit, PR), AI cho xem nội dung chính xác và hỏi. Đọc rồi trả lời **"đồng ý"** (hoặc yêu cầu sửa).
+> Các bước ghi **"Bạn (vai …)"** là cổng con người: bạn tự làm trên GitHub, không nhờ AI.
+
+---
+
+## Giai đoạn 2 — Tập dượt và tạo dữ liệu Sprint 1
+
+Mục tiêu: hai story **#7** và **#6** đi hết quy trình (thành lịch sử Sprint 1), và các story khác dừng ở trạng thái
+dở dang (thành dữ liệu cho daily và planning). Đây cũng là buổi tập cho Demo 1: comment và PR của #7 là **bản dự phòng**
+cho từng bước khi demo live bị chậm.
+
+> **Không đụng #1, #2, #3, #4.** Bốn issue này để demo live.
+
+### 2.1 Tạo milestone Sprint 1
+
+```bash
+cd ~/wata-demo
+gh api repos/phoenixit99/wata-demo/milestones -f title="Sprint 1" -f description="Sprint Goal: người dùng thấy số việc còn lại và sửa được tên việc"
+gh issue edit 7 --milestone "Sprint 1"
+gh issue edit 6 --milestone "Sprint 1"
+```
+
+### 2.2 Chạy #7 qua toàn bộ quy trình
+
+| # | Ai làm | Làm gì | Kết quả mong đợi |
+|---|---|---|---|
+| 1 | Bạn (PO) | GitHub → issue #7 → gắn label `status:backlog` (**G1**) | |
+| 2 | Claude (cửa sổ A) | `/triage 7` | `## Triage: PASS`, label → `status:test-design` |
+| 3 | Claude (cửa sổ A) | `/test-design 7` | `## Test design: PASS` với `TC-7-1…`, plan |
+| 4 | Claude (cửa sổ A) | `/test-design --approve 7` | `## Plan approval` (AI **không** gắn ready-to-dev) |
+| 5 | Bạn (Tech Lead) | Gắn `status:ready-to-dev` (**G2**), gỡ `status:test-design` | |
+| 6 | Claude (cửa sổ A) | `/implement 7` | branch + PR "Refs #7", `## Build write-up`, label → `status:in-review` |
+| 7 | Claude (**cửa sổ B, session mới**: mở terminal khác, `cd ~/wata-demo && claude`) | `/pr-review <số PR>` | `## Code review: PASS` (hoặc FAIL → quay lại bước 6 ở cửa sổ A) |
+| 8 | Claude (cửa sổ A) | `/qa 7` | Playwright mới trong `apps/web/e2e/`, `## QA report: PASS`, label → `status:qa-passed` |
+| 9 | Claude (cửa sổ A) | `/merge-gate 7` | `## Refutation brief` |
+| 10 | Bạn (reviewer) | Đọc brief, comment trên issue `## G3: OK` | |
+| 11 | Claude (cửa sổ A) | `/merge-gate --merge 7` | `## Merge readiness: READY` |
+| 12 | Bạn (Tech Lead) | Merge PR trên GitHub (**G4**). Một mình bạn nên phải tích "bypass branch protection" | PR merged |
+| 13 | Bạn | Gắn `status:uat`, gỡ `status:qa-passed` (trong project thật, workflow `wata-pr-merged` tự gắn) | |
+| 14 | Claude (cửa sổ A) | `/uat 7` | `## UAT checklist` |
+| 15 | Claude (cửa sổ A) | Chạy app `npm --prefix apps/web run dev`, rồi `/uat --run 7` và kiểm từng mục cùng AI | `## UAT: ACCEPTED` |
+| 16 | Bạn (PO) | Gắn `status:done`, đóng issue #7 (**G5**) | |
+
+**Ghi lại** số PR của #7 vào bảng [Mốc đã chạy sẵn](#mốc-đã-chạy-sẵn) ở cuối file.
+
+### 2.3 Chạy #6 như #7
+
+Làm lại các bước 1–16 với **#6**. Nếu review hoặc QA báo FAIL thì **càng tốt**: đó là dữ liệu thật cho retro. Cứ để
+AI sửa (`/implement 6`) rồi review lại.
+
+### 2.4 Đóng Sprint 1, mở Sprint 2 với việc dở dang
+
+```bash
+# Đóng Sprint 1
+M=$(gh api repos/phoenixit99/wata-demo/milestones --jq '.[] | select(.title=="Sprint 1") | .number')
+gh api -X PATCH repos/phoenixit99/wata-demo/milestones/$M -f state=closed
+```
+
+Tạo dữ liệu cho Demo 2 (mỗi lệnh `/...` chạy ở cửa sổ A):
+
+| Issue | Làm | Trạng thái để lại |
+|---|---|---|
+| #5 Hạn chót | Gắn `status:backlog` → `/triage 5` → `/test-design 5` | `status:test-design` (chờ G2, ứng viên planning) |
+| #8 Tìm kiếm | Gắn `status:backlog` → `/triage 8` → `/test-design 8` → bạn gắn `status:ready-to-dev` | `status:ready-to-dev` (ứng viên planning) |
+| #10 Đăng nhập | Gắn `status:backlog` → `/triage 10` | Triage sẽ vướng điểm cần quyết định (backend, nhà cung cấp email): `fail-to-dev` hoặc `needs-human`. Giữ nguyên |
+| #9 Kéo thả | Không làm gì | Không có `status:*`: planning sẽ đề xuất tách vì `size:xl` |
+
+Đợi **ít nhất 1 giờ** trước buổi demo. `sla_hours` của repo này đặt bằng 1 giờ, nên `/sprint daily` sẽ có mục "Quá SLA"
+thật. Project thật dùng 8–48 giờ.
+
+### 2.5 Thử trước các lệnh Scrum
+
+Chạy một lần `/sprint daily`, `/sprint retro "Sprint 1"`, `/sprint plan "Sprint 2"` (ở bước chốt thì **từ chối**, để
+lúc demo làm lại). Xem kết quả có hợp lý không; nếu lệch thì báo lại để chỉnh dữ liệu.
+
+---
+
+## Giai đoạn 3 — Buổi demo
+
+### Chuẩn bị 15 phút trước
+
+- [ ] Cửa sổ A: `cd ~/wata-demo && claude`. Cửa sổ B: `cd ~/wata-demo && claude` (session riêng cho review)
+- [ ] Terminal C: `npm --prefix apps/web run dev`, mở http://localhost:5173 (xoá dữ liệu cũ: DevTools → Application → Local Storage)
+- [ ] Trình duyệt: tab Issues, tab Pull requests của repo, tab website quy trình (sơ đồ ở `docs/agents/process.md` mục 4)
+- [ ] `git checkout main && git pull` ở `~/wata-demo`
+- [ ] Mở sẵn PR và issue #7 ở một tab (bản dự phòng)
+
+Một người đóng nhiều vai. Mỗi lần đổi vai, nói rõ: "Bây giờ tôi là PO / Tech Lead / QA".
+
+### Demo 1 — Quy trình phát triển (35–45 phút)
 
 ```
-PO viết yêu cầu ─G1─▶ triage (DoR) ─▶ test-design ─G2─▶ implement ─▶ PR ─▶ pr-review ─▶ qa ─▶ merge-gate ─G3─G4─▶ merge ─▶ uat ─G5─▶ done
-   (người)      (người)   (AI)          (AI)      (người)   (AI)            (AI, session riêng) (AI)    (AI)       (người)  (người) (AI)  (người)
+PO ─G1─▶ triage ─▶ test-design ─G2─▶ implement ─▶ pr-review ─▶ qa ─▶ merge-gate ─G3─G4─▶ uat ─G5─▶ done
+(người)   (AI)        (AI)      (người)   (AI)    (AI, session riêng) (AI)   (AI)    (người)   (AI)  (người)
 ```
 
-### Bước 1 — PO: từ lời nói thành issue chuẩn (3 phút) · *vai PO*
+| Bước | Thời gian | Bạn làm | Khán giả thấy | Nói gì |
+|---|---|---|---|---|
+| **1. PO viết yêu cầu** | 3' | Cửa sổ A: `/issue-create Người dùng muốn lọc danh sách công việc theo trạng thái: tất cả, đang làm, đã xong. Lọc rồi mà đánh dấu xong thì việc đó phải biến mất luôn. Tải lại trang thì về Tất cả.` Khi AI hỏi có tạo issue không: **từ chối**, nói "issue này đã có sẵn là #1" | AI hỏi lại chỗ mơ hồ, soạn AC dạng "Khi … thì …" | AC kiểm chứng được là đầu vào cho test, review và UAT |
+| **2. G1 + triage** | 3' | GitHub: #1 gắn `status:backlog`. Cửa sổ A: `/triage 1` | Bảng R1–R11, tìm issue trùng, đề xuất `risk:standard`, `## Triage: PASS` | Cổng G1 là của PO; AI chỉ kiểm tra issue đã đủ thông tin chưa (Definition of Ready) |
+| **2b. Nhánh: issue mơ hồ** | 2' | #2 gắn `status:backlog`. `/triage 2` | `## Triage: FAIL`: R2, R5 ("đẹp hơn", "nhanh"), R7 (`TBD`); label `status:fail-to-dev` | AI từ chối đoán. PO sửa xong mới làm tiếp |
+| **3. Test trước code + G2** | 5' | `/test-design 1`, sau đó `/test-design --approve 1`. Bạn gắn `status:ready-to-dev` | TC-1-1…n theo từng AC, plan AC → file → test, `## Plan approval` | AI không tự gắn G2. Sửa plan rẻ hơn sửa code |
+| **4. Implement** | 6–8' | `/implement 1` | Branch, test viết trước, code `filterTasks`, chạy lint/typecheck/test/build, PR, `## Build write-up` | Write-up chia rõ **đã chạy / chỉ đọc / còn là claim** |
+| **5. Review session riêng** | 5' | **Cửa sổ B:** `/pr-review <số PR>` | Lượt 1: 9 tiêu chí. Lượt 2: cố bác bỏ write-up. Kết luận PASS/FAIL | Người viết và người review là hai session khác nhau. FAIL → sửa, tối đa 3 vòng, rồi giao người |
+| **6. QA** | 5' | Cửa sổ A: `/qa 1` | Viết Playwright theo TC, chạy, phân loại lỗi, `## QA report` | Không bao giờ làm yếu test cho xanh |
+| **7–8. G3 + G4** | 4' | `/merge-gate 1`; đọc brief, comment `## G3: OK`; `/merge-gate --merge 1`; bấm Merge | Refutation brief, `## Merge readiness: READY` | Thử `git push origin main` → bị branch protection từ chối |
+| **9. UAT + G5** | 3' | Gắn `status:uat`; `/uat 1`; mở app ở tab C, `/uat --run 1`; gắn `status:done` | Checklist bằng ngôn ngữ người dùng, `## UAT: ACCEPTED` | Chỉ PO đóng việc |
+| **Phụ: rủi ro** | 4' | #3: `status:backlog` → `/triage 3`. #4: `status:backlog` → `/triage 4` | #3 được đề xuất `risk:low`, **bỏ G3**. #4 (xoá dữ liệu) được đề xuất `risk:high`, thêm review bảo mật | Mở `docs/agents/risk-tiers.md`: cổng thay đổi theo mức rủi ro |
 
-Terminal A:
-```
-/issue-create Người dùng muốn lọc danh sách công việc theo trạng thái: tất cả, đang làm, đã xong. Lọc rồi mà đánh dấu xong thì việc đó phải biến mất luôn. Tải lại trang thì về Tất cả.
-```
-**Thấy:** AI hỏi lại các điểm còn mơ hồ, soạn issue theo mẫu `feature.yml` với AC dạng "Khi … thì …", đề xuất label.
-**Nói:** AC phải kiểm chứng được — đó là đầu vào cho cả test design, review lẫn UAT.
+**Bước nào AI chạy quá 3 phút hoặc đi lệch:** dừng (Esc), mở comment tương ứng của **#7** và nói "đây là kết quả lần
+chạy hôm qua".
 
-> Có thể không tạo issue mới mà dùng issue mẫu **"Lọc danh sách công việc theo trạng thái"** (đã seed) cho các bước sau
-> để tiết kiệm thời gian. Chỉ cần cho xem bản AI soạn rồi từ chối ghi.
+**Câu hỏi hay gặp:**
 
-### Bước 2 — Cổng G1 và triage (4 phút) · *vai PO → AI*
-
-1. Trên GitHub, mở issue **"Lọc danh sách…"**, gắn label `status:backlog` → **cổng G1** (PO xác nhận "issue này đáng làm").
-2. Terminal A: `/triage <số issue>`
-
-**Thấy:** bảng R1–R11 (có assignee, AC đo được, không TBD, tìm issue trùng theo cả tiêu đề và code…), đề xuất
-`risk:standard`, comment `## Triage: PASS`, label chuyển `status:test-design`.
-
-**Nhánh rẽ (2 phút):** issue **"Cải thiện màn hình công việc"** → gắn `status:backlog` → `/triage <số>`.
-**Thấy:** `## Triage: FAIL` chỉ ra R2 (tiêu đề chung chung), R5 ("đẹp hơn", "nhanh", "hợp lý"), R7 (`TBD`); label
-`status:fail-to-dev`. **Nói:** AI từ chối làm việc mơ hồ thay vì đoán — PO sửa issue rồi gắn lại `status:backlog`.
-
-### Bước 3 — Test design trước khi code, cổng G2 (5 phút) · *AI → Tech Lead*
-
-1. Terminal A: `/test-design <số issue>`
-   **Thấy:** test case `TC-<số>-1…n` ánh xạ từng AC (unit / component / e2e / manual), plan "AC → file → test",
-   comment `## Test design: PASS`.
-2. Đổi vai Tech Lead. Terminal A: `/test-design --approve <số issue>`
-   **Thấy:** AI soạn `## Plan approval` theo checklist, **nhưng không gắn** `status:ready-to-dev`.
-3. Tech Lead tự gắn `status:ready-to-dev` trên GitHub → **cổng G2**.
-   **Nói:** G2 là chỗ rẻ nhất để sửa sai: sửa plan rẻ hơn sửa code.
-
-### Bước 4 — Implement (6–8 phút) · *vai Dev, AI code*
-
-Terminal A: `/implement <số issue>`
-**Thấy:** AI tạo branch, viết test trước (từ TC), code `filterTasks` trong `tasks.ts` và nút lọc trong `App.tsx`,
-chạy `lint`/`typecheck`/`test`/`build`, mở PR `Refs #<số>` theo `pull_request_template.md`, đăng `## Build write-up`
-với footer **đã chạy / chỉ đọc / còn là claim**. Label → `status:in-review`.
-**Nói:** write-up nói rõ cái gì *đã chạy thật* và cái gì *mới là khẳng định* — reviewer biết phải nghi ngờ chỗ nào.
-
-### Bước 5 — Review ở session riêng (5 phút) · *AI reviewer, Terminal B*
-
-Terminal B (session mới, không biết gì về lúc code): `/pr-review <số PR>`
-**Thấy:** lượt 1 đọc diff theo 9 tiêu chí; lượt 2 **cố bác bỏ** từng khẳng định trong write-up (chạy lại test, đối
-chiếu AC3 "biến mất ngay"); `## Code review: PASS` hoặc `FAIL` kèm Finding [Blocker/Major/Minor].
-**Nói:** người viết và người review là hai session khác nhau — giống hai dev khác nhau. FAIL → `status:in-progress`,
-Terminal A chạy lại `/implement <số>`; tối đa 3 vòng (`round:*`) rồi `status:needs-human`.
-
-### Bước 6 — QA (5 phút) · *AI QA*
-
-Terminal A: `/qa <số issue>`
-**Thấy:** AI viết Playwright cho các TC auto trong `apps/web/e2e/`, chạy `npm --prefix apps/web run e2e`, phân loại lỗi
-(lỗi sản phẩm / lỗi test / môi trường), `## QA report: PASS` → `status:qa-passed`.
-**Nói:** luật "không bao giờ làm yếu test để xanh". Case manual (nếu có) → `/qa --manual` cho QA thật.
-
-### Bước 7–8 — Cổng G3 và G4 (4 phút) · *Tech Lead*
-
-1. `/merge-gate <số issue>` → `## Refutation brief`: đoạn code nên đọc kỹ, cái chưa được kiểm, câu hỏi gợi ý.
-   Người review đọc và đăng `## G3: OK` (hoặc tìm ra lỗi → `## Code review: FAIL`).
-2. `/merge-gate --merge <số issue>` → kiểm CI trên commit cuối, CODEOWNERS, chuỗi heading PASS, G3 →
-   `## Merge readiness: READY`.
-3. **Tech Lead tự bấm Merge** trên GitHub → **cổng G4**. Cho xem: thử push thẳng `main` bị branch protection chặn.
-
-### Bước 9 — UAT, cổng G5 (3 phút) · *PO*
-
-1. Gắn `status:uat` (trong project thật, workflow `wata-pr-merged` tự gắn sau merge).
-2. `/uat <số issue>` → `## UAT checklist` bằng ngôn ngữ người dùng (không tên file, không thuật ngữ).
-3. PO mở app local, `/uat --run <số issue>` đi qua từng mục → `## UAT: ACCEPTED`.
-4. **PO tự gắn** `status:done` và đóng issue → **cổng G5**.
-
-### Phụ: hai nhánh rủi ro (nếu còn thời gian, 4 phút)
-
-- **"Đổi câu trạng thái rỗng"** → triage đề xuất `risk:low` → bảng `docs/agents/risk-tiers.md`: **bỏ G3**, đi nhanh.
-- **"Xoá các việc đã xong"** → xoá dữ liệu người dùng → triage đề xuất `risk:high` → thêm review bảo mật, G3 bắt buộc.
-
-### Câu hỏi hay gặp từ dev/QA
-
-| Câu hỏi | Trả lời ngắn |
+| Câu hỏi | Trả lời |
 |---|---|
-| AI có tự merge không? | Không. Luật trong `CLAUDE.md` + branch protection + CODEOWNERS; token của agent không có quyền bypass. |
-| Lỡ AI code sai thì sao? | Hai lớp chặn trước người: review session riêng (bác bỏ write-up) và QA; tối đa 3 vòng rồi giao người. |
-| Chạy tự động được không? | Được: workflow `wata-agent` chạy skill khi label đổi (cần GitHub App + secrets, `docs/agents/setup-guide.md` mục 3). Repo demo tắt phần này để mọi bước đều chạy tương tác cho dễ xem. |
-| QA còn làm gì? | Duyệt test case ở G2, chạy case manual/mobile (`/qa --manual`), quyết định khi AI phân loại "chưa chắc". |
+| AI có tự merge không? | Không. Có ba lớp chặn: luật trong `CLAUDE.md`, branch protection, CODEOWNERS. Token của agent không được bypass |
+| Lỡ AI code sai? | Review ở session riêng, rồi QA, rồi G3 do người làm. Tối đa 3 vòng tự sửa, sau đó giao người |
+| Chạy tự động được không? | Được: workflow `wata-agent` chạy skill khi label đổi (cần GitHub App và secrets, xem `docs/agents/setup-guide.md` mục 3). Repo demo tắt phần này để từng bước diễn ra trước mắt khán giả |
+| QA còn làm gì? | Duyệt test case ở G2, chạy case manual/mobile (`/qa --manual`), quyết định ở các chỗ AI phân loại "chưa chắc" |
+
+### Demo 2 — Quản lý Scrum (20–25 phút)
+
+| Sự kiện | Thời gian | Bạn làm | Khán giả thấy | Nói gì |
+|---|---|---|---|---|
+| **Sprint Planning** | 7' | `/sprint plan "Sprint 2"` | Số liệu Sprint 1 (lead time, review/ngày, fail-to-dev), **năng lực = min(review, QA, nghiệm thu)**, danh sách đề xuất. Các cờ: #9 `size:xl` (đề xuất tách), #10 `human-code` + `risk:high` | Sprint chỉ chứa được số việc mà người kịp review và QA. Team chốt Sprint Goal; AI tạo milestone **sau khi được đồng ý** (đồng ý luôn trong demo) |
+| **Daily** | 5' | `/sprint daily` | Việc bị chặn (#10), hàng chờ con người so với WIP (chờ G2: #5), quá SLA | Daily hỏi "ai đang chặn ai", không còn "hôm qua làm gì" |
+| **Sprint Review** | 4' | `/sprint review "Sprint 1"` | Tài liệu demo cho khách bằng ngôn ngữ nghiệp vụ (#6, #7) | Bản cho khách: không tên file, không thuật ngữ |
+| **Review feedback** | 3' | `/sprint review feedback "Sprint 1"`, dán: *"Khách muốn số việc còn lại hiện cả ở tiêu đề tab trình duyệt. Khi sửa tên mà bấm ra ngoài ô thì đang mất chữ vừa gõ."* | AI tách thành 1 story mới và 1 bug, soạn AC nháp, **chờ PO đồng ý từng mục** | Phản hồi của khách thành issue ngay trong buổi họp |
+| **Retro** | 5' | `/sprint retro "Sprint 1"` | Số liệu so với mục tiêu trong `scrum.md`; lỗi AI lặp lại gom theo nguyên nhân, kèm đề xuất sửa skill, coding standard và mục "Bẫy đã biết" | Retro cải tiến cả người lẫn AI. Đề xuất sửa skill được gửi về repo quy trình trung tâm |
+| **Báo cáo** (tuỳ chọn) | 2' | `/sprint report` | Báo cáo tiến độ và chỉ số cho PM | |
 
 ---
 
-## Demo 2 — Quản lý Scrum với AI
+## Mốc đã chạy sẵn
 
-Dữ liệu: milestone **Sprint 1** (đã đóng, có lịch sử thật từ lần chạy thử), backlog 6 story seed (`demo: 2`), và
-**Sprint 2** đang chạy. `project.yml` của repo demo đặt `sla_hours` = 1 giờ và WIP = 1 để daily có dữ liệu "quá SLA"
-và "vượt WIP" thật. Project thật dùng giá trị trong mẫu (8–48 giờ, WIP 3/4/4).
+Điền trong lúc tập dượt (Giai đoạn 2):
 
-### 1. Sprint Planning (7 phút) · *PM + PO + Tech Lead*
-
-```
-/sprint plan "Sprint 2"
-```
-**Thấy:** số liệu Sprint 1 (PR review/người/ngày, lead time, tỉ lệ fail-to-dev), **năng lực = min(review, QA,
-nghiệm thu)**, danh sách đề xuất theo priority, và các cờ:
-- **"Kéo thả, dự án, nhãn màu, lịch"** `size:xl` → đề xuất tách;
-- **"Đăng nhập bằng email"** `human-code` + `risk:high` → cần người code, chiếm năng lực review bảo mật;
-- story UI cần duyệt thiết kế trong 1–2 ngày đầu.
-
-**Nói:** AI viết code nhanh không có nghĩa sprint chứa được nhiều hơn — chỉ chứa được bằng số PR người review kịp.
-Team chốt Sprint Goal; AI chỉ tạo milestone và gắn issue **sau khi được đồng ý**.
-
-### 2. Daily 15 phút (5 phút) · *PM*
-
-```
-/sprint daily
-```
-**Thấy:** chỉ 3 thứ đáng bàn — **việc bị chặn** (`needs-human`, `blocked`, `fail-to-dev`), **hàng chờ con người**
-(chờ review / QA / G2 / G3 / UAT so với WIP), **quá SLA**. Tiến độ bình thường đã có trên label nên không đọc lại.
-**Nói:** daily chuyển từ "hôm qua làm gì" sang "ai đang chặn ai".
-
-### 3. Sprint Review (4 phút) · *PO*
-
-```
-/sprint review "Sprint 1"
-```
-**Thấy:** tài liệu demo cho khách bằng ngôn ngữ nghiệp vụ (kịch bản "làm gì → thấy gì"), story chưa xong và lý do.
-Phần B: dán ghi chú buổi review → `/sprint review feedback "Sprint 1"` → tách thành bug / story mới / đổi ưu tiên,
-**chờ PO đồng ý từng mục** rồi mới tạo issue.
-
-### 4. Retro (5 phút) · *cả team + AI Enablement*
-
-```
-/sprint retro "Sprint 1"
-```
-**Thấy:** số liệu so với mục tiêu trong `scrum.md`; **lỗi AI lặp lại gom theo nguyên nhân** (từ các comment
-`## Code review: FAIL`, `## QA report: FAIL`, `## Needs human`) → đề xuất sửa skill/coding standard/CLAUDE.md
-("Bẫy đã biết").
-**Nói:** retro không chỉ cải tiến người mà cải tiến cả AI — đề xuất sửa skill gửi về repo quy trình trung tâm.
-
-### 5. Báo cáo (2 phút, tuỳ chọn) · *PM*
-
-`/sprint report` → báo cáo tiến độ và chỉ số cho PM/khách hàng.
+| Bước | Issue/PR | Link |
+|---|---|---|
+| Triage PASS | #7 | |
+| Test design + Plan approval | #7 | |
+| PR + Build write-up | PR # | |
+| Code review | PR # | |
+| QA report | #7 | |
+| Refutation brief + Merge readiness | #7 | |
+| UAT checklist + ACCEPTED | #7 | |
+| Review/QA FAIL (nếu có) | #6 | |
 
 ---
 
 ## Phần 3 — Demo cho lãnh đạo, PM, PO (dự kiến)
 
-Dùng lại repo này, rút gọn theo người xem:
+Dùng lại repo và dữ liệu này, rút gọn theo người xem:
 
 | Người xem | Nội dung | Lệnh |
 |---|---|---|
-| PO | Lời nói → issue chuẩn; G1; triage FAIL; nghiệm thu; phản hồi review thành story | `/issue-create`, `/uat --run`, `/sprint review feedback` |
+| PO | Lời nói thành issue chuẩn; G1; triage FAIL; nghiệm thu; phản hồi review thành story | `/issue-create`, `/triage`, `/uat --run`, `/sprint review feedback` |
 | PM | Planning theo năng lực, daily theo việc bị chặn, báo cáo chỉ số | `/sprint plan`, `/sprint daily`, `/sprint report` |
-| Lãnh đạo | Con người giữ cổng nào, kiểm soát rủi ro, chỉ số đo được, kết quả pilot | trang tổng quan (chưa làm) |
+| Lãnh đạo | Con người giữ cổng nào, kiểm soát rủi ro, chỉ số đo được | Trang tổng quan (chưa làm) |
 
 ---
 
-## Dự phòng khi AI chạy chậm hoặc lệch
+## Sự cố thường gặp
 
-- Mỗi bước đều có **bản đã chạy sẵn** từ buổi chạy thử (xem bảng "Mốc đã chạy sẵn" bên dưới): mở issue/PR đó và
-  đọc comment thay vì chạy live.
-- AI hỏi lại quá nhiều: trả lời ngắn "dùng giả định hợp lý, ghi vào Câu hỏi mở".
-- Bước ghi bị lỗi quyền: kiểm `gh auth status`; repo public nên mọi người xem được, nhưng chỉ owner ghi được.
-- Không nói "AI luôn đúng". Khi AI sai trước khán giả, đó là ví dụ tốt nhất cho việc vì sao có cổng người.
+| Hiện tượng | Cách xử lý |
+|---|---|
+| `/triage` báo `Unknown command` | Claude Code không mở từ `~/wata-demo`. Thoát, `cd ~/wata-demo && claude` |
+| AI hỏi lại quá nhiều | Trả lời "dùng giả định hợp lý, ghi vào Câu hỏi mở" |
+| Không merge được vì thiếu approval | Bạn là tác giả PR nên không tự approve được. Tích "Merge without waiting for requirements to be met (bypass)" (bạn là admin) |
+| CI chưa xanh khi merge-gate | Đợi job `ci / web` xong (khoảng 40 giây), rồi chạy lại `/merge-gate --merge` |
+| `npm run e2e` treo khi tải trình duyệt | `npx --prefix apps/web playwright install chromium`; repo dùng Playwright 1.65.0 |
+| AI sai trước khán giả | Không sao. Đó là ví dụ tốt nhất cho việc vì sao cần cổng người |
 
-### Mốc đã chạy sẵn
-
-<!-- Điền sau buổi chạy thử: số issue/PR cho từng bước -->
-
----
-
-## Dựng lại demo từ đầu
+## Dựng lại từ đầu
 
 ```bash
-# Issue mẫu (không trùng nếu chạy lại)
-python3 -I demo/seed/seed.py phoenixit99/wata-demo
-# Chỉ demo 1 hoặc chỉ demo 2
-python3 -I demo/seed/seed.py phoenixit99/wata-demo --only 1
+python3 -I demo/seed/seed.py phoenixit99/wata-demo           # tạo lại issue mẫu, bỏ qua issue đã có
+python3 -I demo/seed/seed.py phoenixit99/wata-demo --only 1  # chỉ issue Demo 1
 ```
-Để xoá sạch: đóng các issue/PR cũ (hoặc tạo repo mới và chạy lại `bootstrap.sh` + `seed.py`).
+Để có repo sạch hoàn toàn: tạo repo mới, chạy `bootstrap.sh` của quy trình, copy `apps/` và `demo/`, rồi chạy `seed.py`.
